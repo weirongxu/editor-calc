@@ -1,0 +1,30 @@
+{
+  "name": "editor-calc",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "calculate extension for editor",
+  "main": "lib/index.js",
+  "keywords": [
+    "calculator",
+    "calc"
+  ],
+  "scripts": {
+    "clean": "rm -rf lib",
+    "build": "tsc -p ./tsconfig.prod.json",
+    "prepare": "yarn run clean && yarn run build",
+    "test": "tslint -p . && jest"
+  },
+  "dependencies": {
+    "decimal.js": "^10.2.0",
+    "parsimmon": "^1.13.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.18",
+    "@types/node": "^12.7.4",
+    "@types/parsimmon": "^1.10.0",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.0.2",
+    "tslint": "^5.19.0",
+    "typescript": "^3.6.2"
+  }
+}
