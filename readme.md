@@ -6,7 +6,21 @@ Extend decimal.js to an editor extension, used in [coc-calc](https://github.com/
 
 ## Usage
 
-calculate
+```javascript
+import { calculate } from 'editor-calc';
+
+const result = calculate('sin(PI/2)')
+// result === {
+//   skip: 0,
+//   result: '1',
+// }
+
+const result = calculate('1 + 1 = 2 + 3 = 5 + 5 =')
+// result === {
+//   skip: 15,
+//   result: '10'
+// }
+```
 
 ## Operators
 
