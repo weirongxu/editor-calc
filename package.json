@@ -1,6 +1,6 @@
 {
   "name": "editor-calc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "description": "calculate extension for editor",
   "main": "lib/index.js",
