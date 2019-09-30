@@ -4,6 +4,9 @@
   "license": "MIT",
   "description": "calculate extension for editor",
   "main": "lib/index.js",
+  "files": [
+    "lib"
+  ],
   "keywords": [
     "calculator",
     "calc"
