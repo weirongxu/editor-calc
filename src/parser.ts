@@ -86,7 +86,7 @@ export abstract class Node {
 export class Decimal extends Node {
   constructor(public raw: string) {
     super();
-    this.registerResult(() => new DecimalLib(this.raw));
+    this.registerResult(() => new DecimalLib(this.raw.replace(/_/g, '')));
   }
 }
 
@@ -173,7 +173,7 @@ export const optionalParenthesisP = <T extends any>(parser: P.Parser<T>): P.Pars
   );
 };
 
-export const decimalP = P.regexp(/(\d+(\.\d+)?|(\.\d+))(e[-+]?\d+)?(p[-+]?\d+)?/)
+export const decimalP = P.regexp(/(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))(e[-+]?\d[\d_]*)?/)
   .map((str) => new Decimal(str))
   .desc('decimal');
 

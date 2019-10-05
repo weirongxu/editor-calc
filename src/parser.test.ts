@@ -23,9 +23,12 @@ test('parse decimal', () => {
   expect(tryParseValue(decimalP, '3.141592653589793')).toEqual(
     '3.141592653589793',
   );
+
   expect(tryParseValue(decimalP, '1.2e5')).toEqual('120000');
   expect(tryParseValue(decimalP, '1.2e+5')).toEqual('120000');
   expect(tryParseValue(decimalP, '1.2e-5')).toEqual('0.000012');
+
+  expect(tryParseValue(decimalP, '1_1.2_2e5_1')).toEqual(tryParseValue(decimalP, '11.22e51'));
 });
 
 test('parse atomic', () => {
