@@ -1,21 +1,21 @@
-# coc-calc
+# editor-calc
 
 Extend decimal.js to an editor extension, used in [coc-calc](https://github.com/weirongxu/coc-calc) and [vscode-calc](https://github.com/weirongxu/vscode-calc)
 
-[![Build Status](https://travis-ci.com/weirongxu/editor-calc.svg?branch=master)](https://travis-ci.com/weirongxu/editor-calc)
+[![Build Status](https://img.shields.io/github/workflow/status/weirongxu/editor-calc/CI)](https://github.com/weirongxu/editor-calc/actions)
 
 ## Usage
 
 ```javascript
 import { calculate } from 'editor-calc';
 
-const result = calculate('sin(PI/2)')
+const result = calculate('sin(PI/2)');
 // result === {
 //   skip: 0,
 //   result: '1',
 // }
 
-const result = calculate('1 + 1 = 2 + 3 = 5 + 5 =')
+const result = calculate('1 + 1 = 2 + 3 = 5 + 5 =');
 // result === {
 //   skip: 15,
 //   result: '10'
@@ -27,7 +27,7 @@ const result = calculate('1 + 1 = 2 + 3 = 5 + 5 =')
 Precedence is from highest to lowest.
 
 | Operator                              | Example                                     |
-|---------------------------------------|---------------------------------------------|
+| ------------------------------------- | ------------------------------------------- |
 | exponentiation `**`                   | `4 ** 3 ** 2` equivalent to `4 ** (3 ** 2)` |
 | unary `+ -`                           | `-2` `+2`                                   |
 | multiply / divide / remainder `* / %` | `4 % 3` `4 * 3`                             |
@@ -35,8 +35,8 @@ Precedence is from highest to lowest.
 
 ## Mathematics Constant
 
-* `E`
-* `PI`
+- `E`
+- `PI`
 
 ## Mathematics Functions
 

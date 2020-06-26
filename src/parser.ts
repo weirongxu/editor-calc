@@ -1,26 +1,47 @@
 import P from 'parsimmon';
 import { Decimal as DecimalLib } from 'decimal.js';
 
-export type BinaryExponentOptSyms = '**';
-export const BinaryExponentOptSyms: BinaryExponentOptSyms[] = ['**'];
+export const binaryExponentOptSyms = ['**'] as const;
+export type BinaryExponentOptSym = typeof binaryExponentOptSyms[number];
 
-export type BinaryMulOptSyms = '%' | '*' | '/';
-export const BinaryMulOptSyms: BinaryMulOptSyms[] = ['%', '*', '/'];
+export const binaryMulOptSyms = ['%', '*', '/'] as const;
+export type BinaryMulOptSym = typeof binaryMulOptSyms[number];
 
-export type BinaryAddOptSyms = '+' | '-';
-export const BinaryAddOptSyms: BinaryAddOptSyms[] = ['+', '-'];
+export const binaryAddOptSyms = ['+', '-'] as const;
+export type BinaryAddOptSym = typeof binaryAddOptSyms[number];
 
-export type BinaryOptSyms = BinaryExponentOptSyms | BinaryMulOptSyms | BinaryAddOptSyms;
-export const BinaryOptSyms = [...BinaryExponentOptSyms, ...BinaryMulOptSyms, ...BinaryAddOptSyms];
+export type BinaryOptSym =
+  | BinaryExponentOptSym
+  | BinaryMulOptSym
+  | BinaryAddOptSym;
+export const binaryOptSyms = [
+  ...binaryExponentOptSyms,
+  ...binaryMulOptSyms,
+  ...binaryAddOptSyms,
+];
 
-export class BinaryExponentOptClass {
-  '**': never;
-}
-export type UnaryOptSyms = '+' | '-';
-export const UnaryOptSyms: UnaryOptSyms[] = ['+', '-'];
+export const unaryOptSyms = ['+', '-'] as const;
+export type UnaryOptSym = typeof unaryOptSyms[number];
 
-export type ConstSyms = 'E' | 'LN2' | 'LN10' | 'LOG2E' | 'LOG10E' | 'PI' | 'SQRT1_2' | 'SQRT2';
-export const ConstSyms: ConstSyms[] = ['E', 'LN2', 'LN10', 'LOG2E', 'LOG10E', 'PI', 'SQRT1_2', 'SQRT2'];
+export type ConstSyms =
+  | 'E'
+  | 'LN2'
+  | 'LN10'
+  | 'LOG2E'
+  | 'LOG10E'
+  | 'PI'
+  | 'SQRT1_2'
+  | 'SQRT2';
+export const ConstSyms: ConstSyms[] = [
+  'E',
+  'LN2',
+  'LN10',
+  'LOG2E',
+  'LOG10E',
+  'PI',
+  'SQRT1_2',
+  'SQRT2',
+];
 
 export class FuncNameClass {
   abs = [1];
@@ -64,7 +85,7 @@ export const FuncNameEnum = new FuncNameClass();
 export type FuncNameSyms = keyof typeof FuncNameEnum;
 
 export class BinaryOpt {
-  constructor(public raw: BinaryOptSyms) {}
+  constructor(public raw: BinaryOptSym) {}
 }
 
 export abstract class Node {
@@ -121,15 +142,20 @@ export class FuncCall extends Node {
 }
 
 export class UnaryExpr extends Node {
-  constructor(public operators: UnaryOptSyms[], public value: Node) {
+  constructor(public operators: UnaryOptSym[], public value: Node) {
     super();
     this.registerResult(() =>
-      this.operator === '+' ? new DecimalLib(this.value.result) : new DecimalLib(0).sub(this.value.result),
+      this.operator === '+'
+        ? new DecimalLib(this.value.result)
+        : new DecimalLib(0).sub(this.value.result),
     );
   }
 
   get operator() {
-    return this.operators.reduce((ret, o) => ret * (o === '+' ? 1 : -1), 1) === 1 ? '+' : '-';
+    return this.operators.reduce((ret, o) => ret * (o === '+' ? 1 : -1), 1) ===
+      1
+      ? '+'
+      : '-';
   }
 }
 
@@ -147,7 +173,11 @@ export class BinaryExpr extends Node {
     }[expr.operator.raw]();
   }
 
-  constructor(public left: Node, public operator: BinaryOpt, public right: Node) {
+  constructor(
+    public left: Node,
+    public operator: BinaryOpt,
+    public right: Node,
+  ) {
     super();
     this.registerResult(() => BinaryExpr.calculate(this));
   }
@@ -162,18 +192,26 @@ const _ = whitespaceP;
 export const leftParenthesisP = P.string('(').trim(_);
 export const rightParenthesisP = P.string(')').trim(_);
 
-export const ofStringArrayP = <T extends string = string>(...strs: string[]): P.Parser<T> =>
-  P.alt(...strs.map((s) => P.string(s))) as P.Parser<T>;
+export const ofStringArrayP = <T extends string = string>(
+  ...strs: string[]
+): P.Parser<T> => P.alt(...strs.map((s) => P.string(s))) as P.Parser<T>;
 
-export const optionalParenthesisP = <T extends any>(parser: P.Parser<T>): P.Parser<T> => {
+export const optionalParenthesisP = <T extends any>(
+  parser: P.Parser<T>,
+): P.Parser<T> => {
   return P.alt(
     parser,
     parser.wrap(leftParenthesisP, rightParenthesisP),
-    P.lazy(() => optionalParenthesisP(parser).wrap(leftParenthesisP, rightParenthesisP)),
+    P.lazy(() =>
+      optionalParenthesisP(parser).wrap(leftParenthesisP, rightParenthesisP),
+    ),
   );
 };
 
-export const decimalP = P.regexp(/(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))(e[-+]?\d[\d_]*)?/)
+// 11_111.11e11 => number
+export const decimalP = P.regexp(
+  /(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))(e[-+]?\d[\d_]*)?/,
+)
   .map((str) => new Decimal(str))
   .desc('decimal');
 
@@ -185,41 +223,52 @@ export const constantP = includesP(ConstSyms)
   .desc('constant');
 
 // export const funcNameP = P.regexp(/[A-Z_a-z]\w*/).desc('functionName');
-export const funcNameP = includesP(Object.keys(FuncNameEnum)).desc('functionName');
-
-export const funcCallP = P.lazy(() =>
-  P.seq(funcNameP, P.sepBy(exprP, P.string(',').trim(_)).wrap(leftParenthesisP, rightParenthesisP)).map(
-    ([name, args]) => new FuncCall(name, args),
-  ),
-).desc('functionCall');
-
-export const atomicP: P.Parser<Decimal | Constant> = optionalParenthesisP(P.alt(funcCallP, constantP, decimalP)).desc(
-  'atomic',
+export const funcNameP = includesP(Object.keys(FuncNameEnum)).desc(
+  'functionName',
 );
 
-export const unaryOptP = ofStringArrayP<UnaryOptSyms>(...UnaryOptSyms)
+export const funcCallP = P.lazy(() =>
+  P.seq(
+    funcNameP,
+    P.sepBy(exprP, P.string(',').trim(_)).wrap(
+      leftParenthesisP,
+      rightParenthesisP,
+    ),
+  ).map(([name, args]) => new FuncCall(name, args)),
+).desc('functionCall');
+
+export const atomicP: P.Parser<Decimal | Constant> = optionalParenthesisP(
+  P.alt(funcCallP, constantP, decimalP),
+).desc('atomic');
+
+export const unaryOptP = ofStringArrayP<UnaryOptSym>(...unaryOptSyms)
   .trim(_)
   .desc('unaryOperator');
 
 export const unaryExprP: P.Parser<UnaryExpr | Decimal | Constant> = P.lazy(() =>
   optionalParenthesisP(
     P.alt(
-      P.seq(unaryOptP.many(), atomicP).map(([unaryOperators, decimal]) => new UnaryExpr(unaryOperators, decimal)),
+      P.seq(unaryOptP.many(), atomicP).map(
+        ([unaryOperators, decimal]) => new UnaryExpr(unaryOperators, decimal),
+      ),
       atomicP,
     ),
   ),
 ).desc('unaryExpression');
 
-export const binaryOptP = ofStringArrayP<BinaryOptSyms>(...BinaryOptSyms)
+export const binaryOptP = ofStringArrayP<BinaryOptSym>(...binaryOptSyms)
   .trim(_)
   .map((str) => new BinaryOpt(str))
   .desc('binaryOperator');
 
-export const binaryCalculate = <N extends Node>(left: N, ...rest: [BinaryOpt, N][]) => {
+export const binaryCalculate = <N extends Node>(
+  left: N,
+  ...rest: [BinaryOpt, N][]
+) => {
   const nodeStack: Node[] = [];
   const optStack: BinaryOpt[] = [];
   nodeStack.unshift(left);
-  const arithmeticCalc = (opts: string[]) => {
+  const arithmeticCalc = (opts: readonly BinaryOptSym[]) => {
     const _nodeStack: Node[] = [];
     const _optStack: BinaryOpt[] = [];
     while (optStack.length && opts.includes(optStack[0].raw)) {
@@ -240,7 +289,10 @@ export const binaryCalculate = <N extends Node>(left: N, ...rest: [BinaryOpt, N]
     }
   };
   const exponentCalc = () => {
-    while (optStack.length && BinaryExponentOptSyms.includes(optStack[0].raw as BinaryExponentOptSyms)) {
+    while (
+      optStack.length &&
+      binaryExponentOptSyms.includes(optStack[0].raw as BinaryExponentOptSym)
+    ) {
       const op = optStack.shift()!;
       const right = nodeStack.shift()!;
       const left = nodeStack.shift()!;
@@ -249,36 +301,48 @@ export const binaryCalculate = <N extends Node>(left: N, ...rest: [BinaryOpt, N]
   };
   while (rest.length > 0) {
     const [op, expr] = rest.shift()!;
-    if (BinaryExponentOptSyms.includes(op.raw as BinaryExponentOptSyms)) {
+    if (binaryExponentOptSyms.includes(op.raw as BinaryExponentOptSym)) {
       optStack.unshift(op);
       nodeStack.unshift(expr);
-    } else if (BinaryMulOptSyms.includes(op.raw as BinaryMulOptSyms)) {
+    } else if (binaryMulOptSyms.includes(op.raw as BinaryMulOptSym)) {
       exponentCalc();
       optStack.unshift(op);
       nodeStack.unshift(expr);
-    } else if (BinaryAddOptSyms.includes(op.raw as BinaryAddOptSyms)) {
+    } else if (binaryAddOptSyms.includes(op.raw as BinaryAddOptSym)) {
       exponentCalc();
-      arithmeticCalc(BinaryMulOptSyms);
+      arithmeticCalc(binaryMulOptSyms);
       optStack.unshift(op);
       nodeStack.unshift(expr);
     }
   }
   exponentCalc();
-  arithmeticCalc(BinaryMulOptSyms);
-  arithmeticCalc(BinaryAddOptSyms);
+  arithmeticCalc(binaryMulOptSyms);
+  arithmeticCalc(binaryAddOptSyms);
   return nodeStack.shift()! as BinaryExpr;
 };
 
 export const binaryOptExprP: P.Parser<BinaryExpr | UnaryExpr> = P.lazy(() => {
   const unaryP = <T extends Node>(parser: P.Parser<T>) => {
-    return P.alt(P.seq(unaryOptP.many(), parser).map(([unaryOpts, expr]) => new UnaryExpr(unaryOpts, expr)), parser);
+    return P.alt(
+      P.seq(unaryOptP.many(), parser).map(
+        ([unaryOpts, expr]) => new UnaryExpr(unaryOpts, expr),
+      ),
+      parser,
+    );
   };
   const exprP = optionalParenthesisP(
     P.seqMap(
-      P.alt(unaryP(binaryOptExprP.wrap(leftParenthesisP, rightParenthesisP)), unaryExprP) as P.Parser<Node>,
-      P.seq(binaryOptP, P.alt(unaryP(binaryOptExprP.wrap(leftParenthesisP, rightParenthesisP)), unaryExprP) as P.Parser<
-        Node
-      >).atLeast(1),
+      P.alt(
+        unaryP(binaryOptExprP.wrap(leftParenthesisP, rightParenthesisP)),
+        unaryExprP,
+      ) as P.Parser<Node>,
+      P.seq(
+        binaryOptP,
+        P.alt(
+          unaryP(binaryOptExprP.wrap(leftParenthesisP, rightParenthesisP)),
+          unaryExprP,
+        ) as P.Parser<Node>,
+      ).atLeast(1),
       (left, [...rest]) => binaryCalculate(left, ...rest),
     ),
   );
@@ -291,9 +355,7 @@ export const exprP: P.Parser<RootExpr> = P.alt(binaryOptExprP, unaryExprP)
   .trim(_)
   .desc('expression');
 
-export const skipEqualSignP = P.string('=')
-  .trim(_)
-  .times(0, 1);
+export const skipEqualSignP = P.string('=').trim(_).times(0, 1);
 
 export const mainP = exprP.skip(skipEqualSignP).desc('main');
 
@@ -301,6 +363,7 @@ export const parse = (text: string) => mainP.tryParse(text);
 
 export const printAst = (text: string) => {
   const ast = parse(text);
+  // eslint-disable-next-line no-console
   console.log(JSON.stringify(ast, null, 2));
 };
 
@@ -316,6 +379,7 @@ const skipWord = (text: string) => {
 
 export interface CalculateResult {
   skip: number;
+  decimal: DecimalLib;
   result: string;
 }
 
@@ -329,6 +393,7 @@ const calculateRecursion = (
     const ast = parse(text);
     return {
       skip: skipped,
+      decimal: ast.result,
       result: ast.result.valueOf(),
     };
   } catch (err) {
@@ -336,14 +401,21 @@ const calculateRecursion = (
       if (text.length > 0) {
         const skip = skipWord(text);
         const newSkip = skipped + skip;
-        return calculateRecursion(text.slice(skip), newSkip, [...skippedRecords, newSkip], originText);
+        return calculateRecursion(
+          text.slice(skip),
+          newSkip,
+          [...skippedRecords, newSkip],
+          originText,
+        );
       }
     }
 
     const highlightSkipRecords = Array.from(Array(originText.length))
       .map((_, index) => (skippedRecords.includes(index) ? '✗' : ' '))
       .join('');
-    throw new Error(['CalculateError:', originText, highlightSkipRecords].join('\r\n'));
+    throw new Error(
+      ['CalculateError:', originText, highlightSkipRecords].join('\r\n'),
+    );
   }
 };
 

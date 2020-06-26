@@ -4,6 +4,7 @@ const tryParseValue = (parser: any, s: string) => {
   try {
     return parser.tryParse(s).result.valueOf();
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.log(`parse "${s}" error`);
     throw err;
   }
@@ -13,6 +14,7 @@ const calValue = (s: string) => {
   try {
     return calculate(s).result;
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.log(`parse "${s}" error`);
     throw err;
   }
@@ -28,7 +30,9 @@ test('parse decimal', () => {
   expect(tryParseValue(decimalP, '1.2e+5')).toEqual('120000');
   expect(tryParseValue(decimalP, '1.2e-5')).toEqual('0.000012');
 
-  expect(tryParseValue(decimalP, '1_1.2_2e5_1')).toEqual(tryParseValue(decimalP, '11.22e51'));
+  expect(tryParseValue(decimalP, '1_1.2_2e5_1')).toEqual(
+    tryParseValue(decimalP, '11.22e51'),
+  );
 });
 
 test('parse atomic', () => {
@@ -76,6 +80,7 @@ test('calc base', () => {
   expect(calValue('(0.1 - 0.1) - 0.1')).toEqual('-0.1');
   expect(calValue('0.1 - (0.1 - 0.1)')).toEqual('0.1');
   expect(calValue('(0.1 - 0.1 - 0.1)')).toEqual('-0.1');
+  expect(calValue('- 0.1 - 0.1 - 0.1')).toEqual('-0.3');
   expect(calValue('-(0.1 - 0.1 - 0.1)')).toEqual('0.1');
   expect(calValue('0.1 - ((0.1 - (0.2 + 0.1)))')).toEqual('0.3');
   expect(calValue('0.1 - -((0.1 - (0.2 + 0.1)))')).toEqual('-0.1');
@@ -136,39 +141,39 @@ test('calc with function', () => {
 });
 
 test('calc with invalid text', () => {
-  expect(calculate('some text 1.321')).toEqual({
+  expect(calculate('some text 1.321')).toMatchObject({
     skip: 10,
     result: '1.321',
   });
-  expect(calculate('invalid text 1.321 = ')).toEqual({
+  expect(calculate('invalid text 1.321 = ')).toMatchObject({
     skip: 13,
     result: '1.321',
   });
-  expect(calculate('invalid text\t1.321=')).toEqual({
+  expect(calculate('invalid text\t1.321=')).toMatchObject({
     skip: 13,
     result: '1.321',
   });
-  expect(calculate('1+2 invalid text 1.321=')).toEqual({
+  expect(calculate('1+2 invalid text 1.321=')).toMatchObject({
     skip: 17,
     result: '1.321',
   });
-  expect(calculate('Math.floor(4.5 * 2 =')).toEqual({
+  expect(calculate('Math.floor(4.5 * 2 =')).toMatchObject({
     skip: 11,
     result: '9',
   });
-  expect(calculate('Math.floor(seconds / 2 / 1 =')).toEqual({
+  expect(calculate('Math.floor(seconds / 2 / 1 =')).toMatchObject({
     skip: 20,
     result: '2',
   });
-  expect(calculate('E 1 + 1 =')).toEqual({
+  expect(calculate('E 1 + 1 =')).toMatchObject({
     skip: 2,
     result: '2',
   });
-  expect(calculate('1 + 1 5 + 5 =')).toEqual({
+  expect(calculate('1 + 1 5 + 5 =')).toMatchObject({
     skip: 6,
     result: '10',
   });
-  expect(calculate('1 + 1 = 2 + 3 = 5 + 5 =')).toEqual({
+  expect(calculate('1 + 1 = 2 + 3 = 5 + 5 =')).toMatchObject({
     skip: 15,
     result: '10',
   });
