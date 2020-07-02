@@ -23,16 +23,7 @@ export const binaryOptSyms = [
 export const unaryOptSyms = ['+', '-'] as const;
 export type UnaryOptSym = typeof unaryOptSyms[number];
 
-export type ConstSyms =
-  | 'E'
-  | 'LN2'
-  | 'LN10'
-  | 'LOG2E'
-  | 'LOG10E'
-  | 'PI'
-  | 'SQRT1_2'
-  | 'SQRT2';
-export const ConstSyms: ConstSyms[] = [
+export const constSyms = [
   'E',
   'LN2',
   'LN10',
@@ -41,149 +32,270 @@ export const ConstSyms: ConstSyms[] = [
   'PI',
   'SQRT1_2',
   'SQRT2',
-];
+] as const;
+export type ConstSym = typeof constSyms[number];
 
-export class FuncNameClass {
-  abs = [1];
-  acos = [1];
-  acosh = [1];
-  add = [2];
-  asin = [1];
-  asinh = [1];
-  atan = [1];
-  atanh = [1];
-  atan2 = [2];
-  cbrt = [1];
-  ceil = [1];
-  cos = [1];
-  cosh = [1];
-  div = [2];
-  exp = [1];
-  floor = [1];
-  hypot = [1, Infinity];
-  ln = [1];
-  log = [1, 2];
-  log2 = [1];
-  log10 = [1];
-  max = [1, Infinity];
-  min = [1, Infinity];
-  mod = [2];
-  mul = [2];
-  pow = [2];
-  random = [0, 1];
-  round = [1];
-  sign = [1];
-  sin = [1];
-  sinh = [1];
-  sqrt = [1];
-  sub = [2];
-  tan = [1];
-  tanh = [1];
-  trunc = [1];
-}
-export const FuncNameEnum = new FuncNameClass();
-export type FuncNameSyms = keyof typeof FuncNameEnum;
-
-export class BinaryOpt {
-  constructor(public raw: BinaryOptSym) {}
-}
+export const funcNameSyms = [
+  'abs',
+  'acos',
+  'acosh',
+  'add',
+  'asin',
+  'asinh',
+  'atan',
+  'atanh',
+  'atan2',
+  'cbrt',
+  'ceil',
+  'cos',
+  'cosh',
+  'div',
+  'exp',
+  'floor',
+  'hypot',
+  'ln',
+  'log',
+  'log2',
+  'log10',
+  'max',
+  'min',
+  'mod',
+  'mul',
+  'pow',
+  'random',
+  'round',
+  'sign',
+  'sin',
+  'sinh',
+  'sqrt',
+  'sub',
+  'tan',
+  'tanh',
+  'trunc',
+] as const;
+export type FuncNameSym = typeof funcNameSyms[number];
 
 export abstract class Node {
   type: string;
-  result!: DecimalLib;
+  children?: Node[];
+  abstract raw: string;
+  abstract result: DecimalLib;
 
   constructor() {
     this.type = this.constructor.name;
   }
 
-  registerResult(callback: () => DecimalLib) {
-    Object.defineProperty(this, 'result', {
-      get: callback,
-      enumerable: true,
-    });
+  getPrintTree(indent = '') {
+    const lines: string[] = [
+      `${indent}${this.type} -> ${this.raw} (${this.result.toFixed(5)})`,
+    ];
+    if (this.children) {
+      for (let i = 0, len = this.children.length; i < len; i++) {
+        const child = this.children[i];
+        lines.push(...child.getPrintTree(indent + '  '));
+      }
+    }
+    return lines;
   }
 }
 
-export class Decimal extends Node {
-  constructor(public raw: string) {
+export class DecimalAtomic extends Node {
+  get result() {
+    if (this.source instanceof DecimalLib) {
+      return this.source;
+    } else {
+      return new DecimalLib(this.source.replace(/_/g, ''));
+    }
+  }
+
+  get raw() {
+    if (this.source instanceof DecimalLib) {
+      return this.source.valueOf();
+    } else {
+      return this.source;
+    }
+  }
+
+  constructor(source: string);
+  constructor(source: DecimalLib);
+  constructor(public source: string | DecimalLib) {
     super();
-    this.registerResult(() => new DecimalLib(this.raw.replace(/_/g, '')));
   }
 }
 
-export class Constant extends Node {
-  constSym: ConstSyms;
+export class ConstantAtomic extends Node {
+  constSym: ConstSym;
 
   constructor(public raw: string) {
     super();
-    if (!ConstSyms.includes(this.raw as ConstSyms)) {
+    if (!constSyms.includes(this.raw as ConstSym)) {
       throw new Error(`Constant ${this.raw} not exists`);
     }
-    this.constSym = this.raw as ConstSyms;
-    this.registerResult(() => {
-      return new DecimalLib(Math[this.constSym]);
-    });
+    this.constSym = this.raw as ConstSym;
+  }
+
+  get result() {
+    return new DecimalLib(Math[this.constSym]);
   }
 }
 
 export class FuncCall extends Node {
-  funcNameSym: FuncNameSyms;
+  funcNameSym: FuncNameSym;
+
   constructor(public rawFuncName: string, public args: Node[]) {
     super();
-    if (!(this.rawFuncName in FuncNameEnum)) {
+    if (!funcNameSyms.includes(this.rawFuncName as FuncNameSym)) {
       throw new Error(`Function ${this.rawFuncName} not exists`);
     }
-    this.funcNameSym = this.rawFuncName as FuncNameSyms;
-    this.registerResult(() => {
-      // @ts-ignore
-      return DecimalLib[this.funcNameSym](...args.map((a) => a.result));
+    this.funcNameSym = this.rawFuncName as FuncNameSym;
+    this.children = args;
+  }
+
+  get raw() {
+    return `${this.funcNameSym}(${this.args.map((a) => a.raw).join(',')})`;
+  }
+
+  get result() {
+    const args = this.args.map((a) => a.result);
+    // @ts-ignore
+    return DecimalLib[this.funcNameSym](...args);
+  }
+}
+
+export class Unary<T extends Node = Node> extends Node {
+  constructor(public operators: UnaryOptSym[], public node: T) {
+    super();
+    this.children = [node];
+  }
+
+  get raw() {
+    return `${this.operators.join('')}${this.node.raw}`;
+  }
+
+  private get operator(): UnaryOptSym {
+    return this.operators.filter((o) => o === '-').length % 2 === 1 ? '-' : '+';
+  }
+
+  get result() {
+    return this.operator === '+'
+      ? this.node.result
+      : new DecimalLib(0).sub(this.node.result);
+  }
+}
+
+export class Parentheses<T extends Node = Node> extends Node {
+  constructor(public node: T) {
+    super();
+    this.children = [node];
+  }
+
+  get raw() {
+    return `(${this.node.raw})`;
+  }
+
+  get result() {
+    return this.node.result;
+  }
+}
+
+class BinaryExpr extends Node {
+  constructor(public first: Node, public rest: [BinaryOptSym, Node][]) {
+    super();
+    this.children = [first, ...rest.map(([, expr]) => expr)];
+  }
+
+  get raw() {
+    let s: string = this.first.raw;
+    this.rest.forEach(([op, node]) => {
+      s += op + node.raw;
     });
+    return s;
+  }
+
+  private calculate(left: Node, operator: BinaryOptSym, right: Node): Node {
+    const decimal = {
+      '+': () => left.result.add(right.result),
+      '-': () => left.result.minus(right.result),
+      '*': () => left.result.mul(right.result),
+      '/': () => left.result.div(right.result),
+      '%': () => left.result.modulo(right.result),
+      '**': () => {
+        if (left instanceof Unary) {
+          return new Unary(
+            left.operators,
+            new DecimalAtomic(left.node.result.pow(right.result)),
+          ).result;
+        } else {
+          return left.result.pow(right.result);
+        }
+      },
+    }[operator]();
+    return new DecimalAtomic(decimal);
+  }
+
+  get result() {
+    const rest = [...this.rest];
+    const nodeStack: Node[] = [];
+    const optStack: BinaryOptSym[] = [];
+    nodeStack.push(this.first);
+    const getOptStackTop = () => optStack[optStack.length - 1];
+    const popArithmeticCalc = (opts: readonly BinaryOptSym[]) => {
+      const _nodeStack: Node[] = [];
+      const _optStack: BinaryOptSym[] = [];
+      while (optStack.length && opts.includes(getOptStackTop())) {
+        if (_nodeStack.length === 0) {
+          _nodeStack.push(nodeStack.pop()!);
+        }
+        _optStack.push(optStack.pop()!);
+        _nodeStack.push(nodeStack.pop()!);
+      }
+      if (_nodeStack.length > 0) {
+        let left = _nodeStack.pop()!;
+        while (_optStack.length > 0) {
+          const op = _optStack.pop()!;
+          const right = _nodeStack.pop()!;
+          left = this.calculate(left, op, right);
+        }
+        nodeStack.push(left);
+      }
+    };
+    const popExponentCalc = () => {
+      while (
+        optStack.length &&
+        binaryExponentOptSyms.includes(getOptStackTop() as BinaryExponentOptSym)
+      ) {
+        const op = optStack.pop()!;
+        const right = nodeStack.pop()!;
+        const left = nodeStack.pop()!;
+        nodeStack.push(this.calculate(left, op, right));
+      }
+    };
+    while (rest.length > 0) {
+      const [op, expr] = rest.shift()!;
+      if (binaryExponentOptSyms.includes(op as BinaryExponentOptSym)) {
+        optStack.push(op);
+        nodeStack.push(expr);
+      } else if (binaryMulOptSyms.includes(op as BinaryMulOptSym)) {
+        popExponentCalc();
+        optStack.push(op);
+        nodeStack.push(expr);
+      } else if (binaryAddOptSyms.includes(op as BinaryAddOptSym)) {
+        popExponentCalc();
+        popArithmeticCalc(binaryMulOptSyms);
+        optStack.push(op);
+        nodeStack.push(expr);
+      }
+    }
+    popExponentCalc();
+    popArithmeticCalc(binaryMulOptSyms);
+    popArithmeticCalc(binaryAddOptSyms);
+    return nodeStack.pop()!.result;
   }
 }
 
-export class UnaryExpr extends Node {
-  constructor(public operators: UnaryOptSym[], public value: Node) {
-    super();
-    this.registerResult(() =>
-      this.operator === '+'
-        ? new DecimalLib(this.value.result)
-        : new DecimalLib(0).sub(this.value.result),
-    );
-  }
+export type Parser<T> = P.Parser<T>;
 
-  get operator() {
-    return this.operators.reduce((ret, o) => ret * (o === '+' ? 1 : -1), 1) ===
-      1
-      ? '+'
-      : '-';
-  }
-}
-
-export class BinaryExpr extends Node {
-  static calculate(expr: BinaryExpr): DecimalLib {
-    const l = expr.left.result;
-    const r = expr.right.result;
-    return {
-      '+': () => l.add(r),
-      '-': () => l.minus(r),
-      '*': () => l.mul(r),
-      '/': () => l.div(r),
-      '%': () => l.modulo(r),
-      '**': () => l.pow(r),
-    }[expr.operator.raw]();
-  }
-
-  constructor(
-    public left: Node,
-    public operator: BinaryOpt,
-    public right: Node,
-  ) {
-    super();
-    this.registerResult(() => BinaryExpr.calculate(this));
-  }
-}
-
-export type NodeParser = P.Parser<Node>;
+export type NodeParser = Parser<Node>;
 
 export const whitespaceP = P.optWhitespace;
 
@@ -194,39 +306,53 @@ export const rightParenthesisP = P.string(')').trim(_);
 
 export const ofStringArrayP = <T extends string = string>(
   ...strs: string[]
-): P.Parser<T> => P.alt(...strs.map((s) => P.string(s))) as P.Parser<T>;
+): Parser<T> => P.alt(...strs.map((s) => P.string(s))) as Parser<T>;
 
-export const optionalParenthesisP = <T extends any>(
-  parser: P.Parser<T>,
-): P.Parser<T> => {
-  return P.alt(
-    parser,
-    parser.wrap(leftParenthesisP, rightParenthesisP),
-    P.lazy(() =>
-      optionalParenthesisP(parser).wrap(leftParenthesisP, rightParenthesisP),
-    ),
-  );
-};
+/**
+ * unaryOpt -> +
+ * unaryOpt -> -
+ */
+export const unaryOptP = ofStringArrayP<UnaryOptSym>(...unaryOptSyms)
+  .trim(_)
+  .desc('unaryOperator');
 
-// 11_111.11e11 => number
-export const decimalP = P.regexp(
+/**
+ * parentheses -> (expr)
+ */
+export const parenthesesP = <T extends Node = Node>(
+  parser: Parser<T>,
+): Parser<Unary<Parentheses<T>> | Parentheses<T>> =>
+  parser
+    .wrap(leftParenthesisP, rightParenthesisP)
+    .map((node) => new Parentheses(node));
+
+/**
+ * decimal -> 11_111.11e11
+ */
+export const decimalAtomicP = P.regexp(
   /(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))(e[-+]?\d[\d_]*)?/,
 )
-  .map((str) => new Decimal(str))
+  .map((str) => new DecimalAtomic(str))
   .desc('decimal');
 
-export const includesP = (ss: string[]) => P.alt(...ss.map((s) => P.string(s)));
+export const includesP = (ss: readonly string[]) =>
+  P.alt(...ss.map((s) => P.string(s)));
 
-// export const constantP = P.regexp(/[A-Z_][A-Z_0-9]*/)
-export const constantP = includesP(ConstSyms)
-  .map((str) => new Constant(str))
+/**
+ * constant -> PI
+ */
+export const constantAtomicP = includesP(constSyms)
+  .map((str) => new ConstantAtomic(str))
   .desc('constant');
 
-// export const funcNameP = P.regexp(/[A-Z_a-z]\w*/).desc('functionName');
-export const funcNameP = includesP(Object.keys(FuncNameEnum)).desc(
-  'functionName',
-);
+/**
+ * funcName -> sin
+ */
+export const funcNameP = includesP(funcNameSyms).desc('functionName');
 
+/**
+ * funcCall -> funcName({expr,}*)
+ */
 export const funcCallP = P.lazy(() =>
   P.seq(
     funcNameP,
@@ -237,121 +363,65 @@ export const funcCallP = P.lazy(() =>
   ).map(([name, args]) => new FuncCall(name, args)),
 ).desc('functionCall');
 
-export const atomicP: P.Parser<Decimal | Constant> = optionalParenthesisP(
-  P.alt(funcCallP, constantP, decimalP),
-).desc('atomic');
+type UnaryNode = FuncCall | ConstantAtomic | DecimalAtomic;
 
-export const unaryOptP = ofStringArrayP<UnaryOptSym>(...unaryOptSyms)
-  .trim(_)
-  .desc('unaryOperator');
+type UnaryExpr = Unary<Parentheses<Expr>> | Unary<UnaryNode> | UnaryNode;
 
-export const unaryExprP: P.Parser<UnaryExpr | Decimal | Constant> = P.lazy(() =>
-  optionalParenthesisP(
-    P.alt(
-      P.seq(unaryOptP.many(), atomicP).map(
-        ([unaryOperators, decimal]) => new UnaryExpr(unaryOperators, decimal),
-      ),
-      atomicP,
-    ),
+/**
+ * unaryExpr -> unaryOpt* unaryExpr
+ * unaryExpr -> (expr)
+ * unaryExpr -> functionCall
+ * unaryExpr -> constant
+ * unaryExpr -> decimal
+ */
+export const unaryExprP = P.lazy(() =>
+  P.seq(
+    unaryOptP.many(),
+    P.alt(parenthesesP(exprP), funcCallP, constantAtomicP, decimalAtomicP),
+  ).map(([unaryOperators, node]) =>
+    unaryOperators.length ? new Unary(unaryOperators, node) : node,
   ),
 ).desc('unaryExpression');
 
+/**
+ * binaryOpt -> +
+ * binaryOpt -> -
+ * binaryOpt -> *
+ * binaryOpt -> /
+ * binaryOpt -> %
+ * binaryOpt -> **
+ */
 export const binaryOptP = ofStringArrayP<BinaryOptSym>(...binaryOptSyms)
   .trim(_)
-  .map((str) => new BinaryOpt(str))
   .desc('binaryOperator');
 
-export const binaryCalculate = <N extends Node>(
-  left: N,
-  ...rest: [BinaryOpt, N][]
-) => {
-  const nodeStack: Node[] = [];
-  const optStack: BinaryOpt[] = [];
-  nodeStack.unshift(left);
-  const arithmeticCalc = (opts: readonly BinaryOptSym[]) => {
-    const _nodeStack: Node[] = [];
-    const _optStack: BinaryOpt[] = [];
-    while (optStack.length && opts.includes(optStack[0].raw)) {
-      if (_nodeStack.length === 0) {
-        _nodeStack.unshift(nodeStack.shift()!);
-      }
-      _optStack.unshift(optStack.shift()!);
-      _nodeStack.unshift(nodeStack.shift()!);
-    }
-    if (_nodeStack.length > 0) {
-      let left = _nodeStack.shift()!;
-      while (_optStack.length > 0) {
-        const op = _optStack.shift()!;
-        const right = _nodeStack.shift()!;
-        left = new BinaryExpr(left, op, right);
-      }
-      nodeStack.unshift(left);
-    }
-  };
-  const exponentCalc = () => {
-    while (
-      optStack.length &&
-      binaryExponentOptSyms.includes(optStack[0].raw as BinaryExponentOptSym)
-    ) {
-      const op = optStack.shift()!;
-      const right = nodeStack.shift()!;
-      const left = nodeStack.shift()!;
-      nodeStack.unshift(new BinaryExpr(left, op, right));
-    }
-  };
-  while (rest.length > 0) {
-    const [op, expr] = rest.shift()!;
-    if (binaryExponentOptSyms.includes(op.raw as BinaryExponentOptSym)) {
-      optStack.unshift(op);
-      nodeStack.unshift(expr);
-    } else if (binaryMulOptSyms.includes(op.raw as BinaryMulOptSym)) {
-      exponentCalc();
-      optStack.unshift(op);
-      nodeStack.unshift(expr);
-    } else if (binaryAddOptSyms.includes(op.raw as BinaryAddOptSym)) {
-      exponentCalc();
-      arithmeticCalc(binaryMulOptSyms);
-      optStack.unshift(op);
-      nodeStack.unshift(expr);
-    }
-  }
-  exponentCalc();
-  arithmeticCalc(binaryMulOptSyms);
-  arithmeticCalc(binaryAddOptSyms);
-  return nodeStack.shift()! as BinaryExpr;
-};
-
-export const binaryOptExprP: P.Parser<BinaryExpr | UnaryExpr> = P.lazy(() => {
-  const unaryP = <T extends Node>(parser: P.Parser<T>) => {
-    return P.alt(
-      P.seq(unaryOptP.many(), parser).map(
-        ([unaryOpts, expr]) => new UnaryExpr(unaryOpts, expr),
-      ),
-      parser,
-    );
-  };
-  const exprP = optionalParenthesisP(
-    P.seqMap(
-      P.alt(
-        unaryP(binaryOptExprP.wrap(leftParenthesisP, rightParenthesisP)),
-        unaryExprP,
-      ) as P.Parser<Node>,
-      P.seq(
-        binaryOptP,
-        P.alt(
-          unaryP(binaryOptExprP.wrap(leftParenthesisP, rightParenthesisP)),
-          unaryExprP,
-        ) as P.Parser<Node>,
-      ).atLeast(1),
-      (left, [...rest]) => binaryCalculate(left, ...rest),
+/**
+ * binaryExpr -> unaryExpr binaryOpt binaryExpr
+ * binaryExpr -> unaryExpr binaryOpt unaryExpr
+ */
+export const binaryExprP: Parser<BinaryExpr> = P.lazy(() =>
+  P.alt(
+    P.seq(unaryExprP, binaryOptP, binaryExprP).map(
+      ([firstExpr, opt, restBinaryExpr]) =>
+        new BinaryExpr(firstExpr, [
+          [opt, restBinaryExpr.first],
+          ...restBinaryExpr.rest,
+        ]),
     ),
-  );
-  return unaryP(exprP);
-});
+    P.seq(unaryExprP, binaryOptP, unaryExprP).map(
+      ([first, opt, restBinaryExpr]) =>
+        new BinaryExpr(first, [[opt, restBinaryExpr]]),
+    ),
+  ),
+).desc('binaryExpression');
 
-export type RootExpr = BinaryExpr | UnaryExpr;
+export type Expr = BinaryExpr | UnaryExpr;
 
-export const exprP: P.Parser<RootExpr> = P.alt(binaryOptExprP, unaryExprP)
+/**
+ * expr -> binaryExpr
+ * expr -> unaryExpr
+ */
+export const exprP: Parser<Expr> = P.alt(binaryExprP, unaryExprP)
   .trim(_)
   .desc('expression');
 
@@ -360,12 +430,6 @@ export const skipEqualSignP = P.string('=').trim(_).times(0, 1);
 export const mainP = exprP.skip(skipEqualSignP).desc('main');
 
 export const parse = (text: string) => mainP.tryParse(text);
-
-export const printAst = (text: string) => {
-  const ast = parse(text);
-  // eslint-disable-next-line no-console
-  console.log(JSON.stringify(ast, null, 2));
-};
 
 const skipEqual = (text: string) => {
   const lastIndex = text.lastIndexOf('=');
@@ -379,6 +443,7 @@ const skipWord = (text: string) => {
 
 export interface CalculateResult {
   skip: number;
+  ast: Node;
   decimal: DecimalLib;
   result: string;
 }
@@ -393,6 +458,7 @@ const calculateRecursion = (
     const ast = parse(text);
     return {
       skip: skipped,
+      ast,
       decimal: ast.result,
       result: ast.result.valueOf(),
     };
@@ -411,10 +477,12 @@ const calculateRecursion = (
     }
 
     const highlightSkipRecords = Array.from(Array(originText.length))
-      .map((_, index) => (skippedRecords.includes(index) ? '✗' : ' '))
+      .map((_, index) => (skippedRecords.includes(index) ? '^' : ' '))
       .join('');
     throw new Error(
-      ['CalculateError:', originText, highlightSkipRecords].join('\r\n'),
+      ['CalculateError:', originText, highlightSkipRecords, err.stack].join(
+        '\r\n',
+      ),
     );
   }
 };

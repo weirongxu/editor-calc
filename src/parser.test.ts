@@ -1,180 +1,249 @@
-import { calculate, decimalP, unaryExprP, atomicP } from './parser';
+import {
+  calculate,
+  constantAtomicP,
+  decimalAtomicP,
+  funcCallP,
+  Node,
+  unaryExprP,
+} from './parser';
 
-const tryParseValue = (parser: any, s: string) => {
-  try {
-    return parser.tryParse(s).result.valueOf();
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.log(`parse "${s}" error`);
-    throw err;
-  }
-};
+const fixtures: {
+  description: string;
+  parse: (s: string) => Node;
+  cases: [string, string][];
+}[] = [
+  {
+    description: 'parse decimal',
+    parse: (s) => decimalAtomicP.tryParse(s),
+    cases: [
+      ['1', '1'],
+      ['3.141592653589793', '3.141592653589793'],
 
-const calValue = (s: string) => {
-  try {
-    return calculate(s).result;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.log(`parse "${s}" error`);
-    throw err;
-  }
-};
+      ['1.2e5', '120000'],
+      ['1.2e+5', '120000'],
+      ['1.2e-5', '0.000012'],
 
-test('parse decimal', () => {
-  expect(tryParseValue(decimalP, '1')).toEqual('1');
-  expect(tryParseValue(decimalP, '3.141592653589793')).toEqual(
-    '3.141592653589793',
-  );
+      ['1_1.2_2e5_1', decimalAtomicP.tryParse('11.22e51').result.valueOf()],
+    ],
+  },
+  {
+    description: 'parse constant atomic',
+    parse: (s) => constantAtomicP.tryParse(s),
+    cases: [['PI', '3.141592653589793']],
+  },
+  {
+    description: 'parse function call',
+    parse: (s) => funcCallP.tryParse(s),
+    cases: [['sin(PI/2)', '1']],
+  },
+  {
+    description: 'parse unaryExpression',
+    parse: (s) => unaryExprP.tryParse(s),
+    cases: [
+      ['1', '1'],
+      ['+1', '1'],
+      ['++1', '1'],
+      ['+++1', '1'],
+      ['-1', '-1'],
+      ['--1', '1'],
+      ['---1', '-1'],
+      ['+3.141592653589793', '3.141592653589793'],
+      ['-1.2e5', '-120000'],
+      ['-1.2e+5', '-120000'],
+      ['1.2e-5', '0.000012'],
+    ],
+  },
+  {
+    description: 'calc base',
+    parse: (s) => calculate(s).ast,
+    cases: [
+      ['1', '1'],
+      ['1.321', '1.321'],
+      ['( (( - 1.321e2) ))', '-132.1'],
+      ['0.2+ (0.1)', '0.3'],
+      ['( 0.2) + (0.1)', '0.3'],
+      ['( 0.2) + ( 0.1)', '0.3'],
+      ['0.1 ++0.1++ 0.1', '0.3'],
+      ['0.1 +++0.1+++ 0.1', '0.3'],
 
-  expect(tryParseValue(decimalP, '1.2e5')).toEqual('120000');
-  expect(tryParseValue(decimalP, '1.2e+5')).toEqual('120000');
-  expect(tryParseValue(decimalP, '1.2e-5')).toEqual('0.000012');
+      ['0.1 * 0.2', '0.02'],
+      ['0.1 *+ 0.2', '0.02'],
+      ['0.2 / - 0.1', '-2'],
+      ['2 ** 2', '4'],
+      ['2 **- 2', '0.25'],
+      ['-2 ** 2', '-4'],
+      ['(-2) ** 2', '4'],
+      ['4 % 3', '1'],
 
-  expect(tryParseValue(decimalP, '1_1.2_2e5_1')).toEqual(
-    tryParseValue(decimalP, '11.22e51'),
-  );
+      ['0.1 - 0.1 - 0.1', '-0.1'],
+      ['0.1 - 0.1 - + ( 0.1 )', '-0.1'],
+      ['0.1 - 0.1 - - 0.1', '0.1'],
+      ['(0.1 - 0.1) - 0.1', '-0.1'],
+      ['0.1 - (0.1 - 0.1)', '0.1'],
+      ['(0.1 - 0.1 - 0.1)', '-0.1'],
+      ['- 0.1 - 0.1 - 0.1', '-0.3'],
+      ['-(0.1 - 0.1 - 0.1)', '0.1'],
+      ['0.1 - ((0.1 - (0.2 + 0.1)))', '0.3'],
+      ['0.1 - -((0.1 - (0.2 + 0.1)))', '-0.1'],
+      ['0.1 - --((0.1 - (0.2 + 0.1)))', '0.3'],
+      ['0.1 - ---((0.1 - (0.2 + 0.1)))', '-0.1'],
+
+      ['0.1 / 0.1 / 0.1', '10'],
+      ['0.1 / 0.1 / + ( 0.1 )', '10'],
+      ['0.1 / 0.1 / - 0.1', '-10'],
+      ['(0.1 / 0.1) / 0.1', '10'],
+      ['0.1 / (0.1 / 0.1)', '0.1'],
+      ['(0.1 / 0.1 / 0.1)', '10'],
+      ['0.1 / ((0.1 / (0.2 * 0.1)))', '0.02'],
+
+      ['0.1 - 0.2 * 0.2', '0.06'],
+      ['0.1 - 0.2 / 0.2', '-0.9'],
+      ['0.1 - 0.2 % 0.2', '0.1'],
+      ['(0.1 - 0.2) * 0.2', '-0.02'],
+      ['(0.1 - 0.2) / 0.2', '-0.5'],
+      ['(0.1 - 0.2) % 0.2', '-0.1'],
+
+      ['1 - 0.1 * 0.1 * 0.1 * 0.1', '0.9999'],
+      ['1 - 0.1 * 0.1 - 0.1 * 0.1', '0.98'],
+      ['1 - 0.2 * (0.2 - 0.1) * 0.1', '0.998'],
+      ['1 - 0.2 * ((0.2 - 0.1) * 0.1)', '0.998'],
+      ['(1 - 0.1 * 0.1) * 0.1 * 0.1', '0.0099'],
+      ['(1 - 0.1 * 0.1) - 0.1 * 0.1', '0.98'],
+      ['(1 - 0.1 * 0.1 - 0.1) * 0.1', '0.089'],
+      ['(1 - 0.2) * (0.2 - 0.1) * 0.1', '0.008'],
+      ['(1 - 0.2 * (0.2 - 0.1)) * 0.1', '0.098'],
+      ['(1 - 0.2 * ((0.2 - 0.1)) * 0.1)', '0.998'],
+      ['(1 + 0.1) - (0.01 + 0.001)', '1.089'],
+
+      ['2 * 2 ** 2', '8'],
+      ['4 ** 3 ** 2', '262144'],
+      ['( 4 ** 3 ) ** 2', '4096'],
+    ],
+  },
+  {
+    description: 'calc with constant',
+    parse: (s) => calculate(s).ast,
+    cases: [
+      ['PI', '3.141592653589793'],
+      ['-PI', '-3.141592653589793'],
+      ['E', '2.718281828459045'],
+      ['+E', '2.718281828459045'],
+    ],
+  },
+  {
+    description: 'calc with function',
+    parse: (s) => calculate(s).ast,
+    cases: [
+      ['sin(PI/2)', '1'],
+      ['-sin(PI/2)', '-1'],
+      ['add(1, 2)', '3'],
+      ['add(1, add(2, 1))', '4'],
+      ['add(add(1, 2), add(2, 1))', '6'],
+      ['add(add(1, 2), add(2, add(2, 1)))', '8'],
+    ],
+  },
+];
+
+fixtures.forEach((fixture) => {
+  describe(fixture.description, () => {
+    fixture.cases.forEach(([formula, result]) => {
+      test(formula, () => {
+        const node = fixture.parse(formula);
+        const formulaResult = node.result.valueOf();
+        if (node.result.valueOf() !== result) {
+          // eslint-disable-next-line no-console
+          console.warn(formula);
+          // eslint-disable-next-line no-console
+          console.warn(node.getPrintTree().join('\n'));
+        }
+        expect(formulaResult).toEqual(result);
+      });
+    });
+  });
 });
 
-test('parse atomic', () => {
-  expect(tryParseValue(atomicP, 'PI')).toEqual('3.141592653589793');
-  expect(tryParseValue(atomicP, 'sin(PI/2)')).toEqual('1');
+describe('calc with error', () => {
+  ['***', 'unvalid'].forEach((s) => {
+    test(s, () => {
+      expect(() => calculate(s)).toThrow();
+    });
+  });
 });
 
-test('parse unaryExpression', () => {
-  expect(tryParseValue(unaryExprP, '1')).toEqual('1');
-  expect(tryParseValue(unaryExprP, '+1')).toEqual('1');
-  expect(tryParseValue(unaryExprP, '++1')).toEqual('1');
-  expect(tryParseValue(unaryExprP, '+++1')).toEqual('1');
-  expect(tryParseValue(unaryExprP, '-1')).toEqual('-1');
-  expect(tryParseValue(unaryExprP, '--1')).toEqual('1');
-  expect(tryParseValue(unaryExprP, '---1')).toEqual('-1');
-  expect(tryParseValue(unaryExprP, '+3.141592653589793')).toEqual(
-    '3.141592653589793',
-  );
-  expect(tryParseValue(unaryExprP, '-1.2e5')).toEqual('-120000');
-  expect(tryParseValue(unaryExprP, '-1.2e+5')).toEqual('-120000');
-  expect(tryParseValue(unaryExprP, '1.2e-5')).toEqual('0.000012');
-});
-
-test('calc base', () => {
-  expect(calValue('1')).toEqual('1');
-  expect(calValue('1.321')).toEqual('1.321');
-  expect(calValue('( (( - 1.321e2) ))')).toEqual('-132.1');
-  expect(calValue('0.2+ (0.1)')).toEqual('0.3');
-  expect(calValue('( 0.2) + (0.1)')).toEqual('0.3');
-  expect(calValue('( 0.2) + ( 0.1)')).toEqual('0.3');
-  expect(calValue('0.1 ++0.1++ 0.1')).toEqual('0.3');
-  expect(calValue('0.1 +++0.1+++ 0.1')).toEqual('0.3');
-
-  expect(calValue('0.1 * 0.2')).toEqual('0.02');
-  expect(calValue('0.1 *+ 0.2')).toEqual('0.02');
-  expect(calValue('0.2 / - 0.1')).toEqual('-2');
-  expect(calValue('2 ** 2')).toEqual('4');
-  expect(calValue('2 **- 2')).toEqual('0.25');
-  expect(calValue('-2 ** 2')).toEqual('-4');
-  expect(calValue('4 % 3')).toEqual('1');
-
-  expect(calValue('0.1 - 0.1 - 0.1')).toEqual('-0.1');
-  expect(calValue('0.1 - 0.1 - + ( 0.1 )')).toEqual('-0.1');
-  expect(calValue('0.1 - 0.1 - - 0.1')).toEqual('0.1');
-  expect(calValue('(0.1 - 0.1) - 0.1')).toEqual('-0.1');
-  expect(calValue('0.1 - (0.1 - 0.1)')).toEqual('0.1');
-  expect(calValue('(0.1 - 0.1 - 0.1)')).toEqual('-0.1');
-  expect(calValue('- 0.1 - 0.1 - 0.1')).toEqual('-0.3');
-  expect(calValue('-(0.1 - 0.1 - 0.1)')).toEqual('0.1');
-  expect(calValue('0.1 - ((0.1 - (0.2 + 0.1)))')).toEqual('0.3');
-  expect(calValue('0.1 - -((0.1 - (0.2 + 0.1)))')).toEqual('-0.1');
-  expect(calValue('0.1 - --((0.1 - (0.2 + 0.1)))')).toEqual('0.3');
-  expect(calValue('0.1 - ---((0.1 - (0.2 + 0.1)))')).toEqual('-0.1');
-
-  expect(calValue('0.1 / 0.1 / 0.1')).toEqual('10');
-  expect(calValue('0.1 / 0.1 / + ( 0.1 )')).toEqual('10');
-  expect(calValue('0.1 / 0.1 / - 0.1')).toEqual('-10');
-  expect(calValue('(0.1 / 0.1) / 0.1')).toEqual('10');
-  expect(calValue('0.1 / (0.1 / 0.1)')).toEqual('0.1');
-  expect(calValue('(0.1 / 0.1 / 0.1)')).toEqual('10');
-  expect(calValue('0.1 / ((0.1 / (0.2 * 0.1)))')).toEqual('0.02');
-
-  expect(calValue('0.1 - 0.2 * 0.2')).toEqual('0.06');
-  expect(calValue('0.1 - 0.2 / 0.2')).toEqual('-0.9');
-  expect(calValue('0.1 - 0.2 % 0.2')).toEqual('0.1');
-  expect(calValue('(0.1 - 0.2) * 0.2')).toEqual('-0.02');
-  expect(calValue('(0.1 - 0.2) / 0.2')).toEqual('-0.5');
-  expect(calValue('(0.1 - 0.2) % 0.2')).toEqual('-0.1');
-
-  expect(calValue('1 - 0.1 * 0.1 * 0.1 * 0.1')).toEqual('0.9999');
-  expect(calValue('1 - 0.1 * 0.1 - 0.1 * 0.1')).toEqual('0.98');
-  expect(calValue('1 - 0.2 * (0.2 - 0.1) * 0.1')).toEqual('0.998');
-  expect(calValue('1 - 0.2 * ((0.2 - 0.1) * 0.1)')).toEqual('0.998');
-  expect(calValue('(1 - 0.1 * 0.1) * 0.1 * 0.1')).toEqual('0.0099');
-  expect(calValue('(1 - 0.1 * 0.1) - 0.1 * 0.1')).toEqual('0.98');
-  expect(calValue('(1 - 0.1 * 0.1 - 0.1) * 0.1')).toEqual('0.089');
-  expect(calValue('(1 - 0.2) * (0.2 - 0.1) * 0.1')).toEqual('0.008');
-  expect(calValue('(1 - 0.2 * (0.2 - 0.1)) * 0.1')).toEqual('0.098');
-  expect(calValue('(1 - 0.2 * ((0.2 - 0.1)) * 0.1)')).toEqual('0.998');
-  expect(calValue('(1 + 0.1) - (0.01 + 0.001)')).toEqual('1.089');
-
-  expect(calValue('2 * 2 ** 2')).toEqual('8');
-  expect(calValue('4 ** 3 ** 2')).toEqual('262144');
-  expect(calValue('( 4 ** 3 ) ** 2')).toEqual('4096');
-});
-
-test('calc with error', () => {
-  expect(() => calculate('***')).toThrow();
-  expect(() => calculate('unvalid')).toThrow();
-});
-
-test('calc with constant', () => {
-  expect(calValue('PI')).toEqual('3.141592653589793');
-  expect(calValue('-PI')).toEqual('-3.141592653589793');
-  expect(calValue('E')).toEqual('2.718281828459045');
-  expect(calValue('+E')).toEqual('2.718281828459045');
-});
-
-test('calc with function', () => {
-  expect(calValue('sin(PI/2)')).toEqual('1');
-  expect(calValue('-sin(PI/2)')).toEqual('-1');
-  expect(calValue('add(1, 2)')).toEqual('3');
-  expect(calValue('add(1, add(2, 1))')).toEqual('4');
-  expect(calValue('add(add(1, 2), add(2, 1))')).toEqual('6');
-  expect(calValue('add(add(1, 2), add(2, add(2, 1)))')).toEqual('8');
-});
-
-test('calc with invalid text', () => {
-  expect(calculate('some text 1.321')).toMatchObject({
-    skip: 10,
-    result: '1.321',
-  });
-  expect(calculate('invalid text 1.321 = ')).toMatchObject({
-    skip: 13,
-    result: '1.321',
-  });
-  expect(calculate('invalid text\t1.321=')).toMatchObject({
-    skip: 13,
-    result: '1.321',
-  });
-  expect(calculate('1+2 invalid text 1.321=')).toMatchObject({
-    skip: 17,
-    result: '1.321',
-  });
-  expect(calculate('Math.floor(4.5 * 2 =')).toMatchObject({
-    skip: 11,
-    result: '9',
-  });
-  expect(calculate('Math.floor(seconds / 2 / 1 =')).toMatchObject({
-    skip: 20,
-    result: '2',
-  });
-  expect(calculate('E 1 + 1 =')).toMatchObject({
-    skip: 2,
-    result: '2',
-  });
-  expect(calculate('1 + 1 5 + 5 =')).toMatchObject({
-    skip: 6,
-    result: '10',
-  });
-  expect(calculate('1 + 1 = 2 + 3 = 5 + 5 =')).toMatchObject({
-    skip: 15,
-    result: '10',
+describe('calc with invalid text', () => {
+  ([
+    [
+      'some text 1.321',
+      {
+        skip: 10,
+        result: '1.321',
+      },
+    ],
+    [
+      'invalid text 1.321 = ',
+      {
+        skip: 13,
+        result: '1.321',
+      },
+    ],
+    [
+      'invalid text\t1.321=',
+      {
+        skip: 13,
+        result: '1.321',
+      },
+    ],
+    [
+      '1+2 invalid text 1.321=',
+      {
+        skip: 17,
+        result: '1.321',
+      },
+    ],
+    [
+      'Math.floor(4.5 * 2 =',
+      {
+        skip: 11,
+        result: '9',
+      },
+    ],
+    [
+      'Math.floor(seconds / 2 / 1 =',
+      {
+        skip: 20,
+        result: '2',
+      },
+    ],
+    [
+      'E 1 + 1 =',
+      {
+        skip: 2,
+        result: '2',
+      },
+    ],
+    [
+      '1 + 1 5 + 5 =',
+      {
+        skip: 6,
+        result: '10',
+      },
+    ],
+    [
+      '1 + 1 = 2 + 3 = 5 + 5 =',
+      {
+        skip: 15,
+        result: '10',
+      },
+    ],
+  ] as [
+    string,
+    {
+      skip: number;
+      result: string;
+    },
+  ][]).forEach(([formula, matchObj]) => {
+    test(formula, () => {
+      expect(calculate(formula)).toMatchObject(matchObj);
+    });
   });
 });
