@@ -2,7 +2,7 @@
 
 Extend decimal.js to an editor extension, used in [coc-calc](https://github.com/weirongxu/coc-calc) and [vscode-calc](https://github.com/weirongxu/vscode-calc)
 
-[![Build Status](https://img.shields.io/github/workflow/status/weirongxu/editor-calc/CI)](https://github.com/weirongxu/editor-calc/actions)
+[![Build Status](https://img.shields.io/github/workflow/status/weirongxu/editor-calc/ci)](https://github.com/weirongxu/editor-calc/actions)
 
 ## Usage
 
