@@ -3,6 +3,10 @@
   "version": "2.0.2",
   "license": "MIT",
   "description": "calculate extension for editor",
+  "author": "Weirong Xu <weirongxu.raidou@gmail.com>",
+  "publisher": "weirongxu",
+  "homepage": "https://github.com/weirongxu/editor-calc",
+  "repository": "git@github.com:weirongxu/editor-calc.git",
   "main": "lib/index.js",
   "files": [
     "lib"
