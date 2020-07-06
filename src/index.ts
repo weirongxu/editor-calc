@@ -1,2 +1,2 @@
-export { calculate, CalculateResult } from './parser';
+export * from './parser';
 export { Decimal } from 'decimal.js';

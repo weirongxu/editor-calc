@@ -7,7 +7,7 @@ Extend decimal.js to an editor extension, used in [coc-calc](https://github.com/
 ## Usage
 
 ```javascript
-import { calculate } from 'editor-calc';
+import { calculate, parse } from 'editor-calc';
 
 const result = calculate('sin(PI/2)');
 // result === {
@@ -20,6 +20,20 @@ const result = calculate('1 + 1 = 2 + 3 = 5 + 5 =');
 //   skip: 15,
 //   result: '10'
 // }
+
+parse('sin(PI/2) + --- add(1, 2)').getPrintTree().join('\n');
+// BinaryExpr -> sin(PI/2)+---add(1,2) => -2.00000
+//   FuncCall -> sin(PI/2) => 1.00000
+//     BinaryExpr -> PI/2 => 1.57080
+//       ConstantAtomic -> PI => 3.14159
+//       Operator -> /
+//       DecimalAtomic -> 2 => 2.00000
+//   Operator -> +
+//   Unary -> ---add(1,2) => -3.00000
+//     Operator -> ---
+//     FuncCall -> add(1,2) => 3.00000
+//       DecimalAtomic -> 1 => 1.00000
+//       DecimalAtomic -> 2 => 2.00000
 ```
 
 ## Operators

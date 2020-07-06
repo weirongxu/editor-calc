@@ -77,7 +77,7 @@ export type FuncNameSym = typeof funcNameSyms[number];
 
 export abstract class Node {
   type: string;
-  children?: Node[];
+  children?: (Node | string)[];
   abstract raw: string;
   abstract result: DecimalLib;
 
@@ -85,14 +85,51 @@ export abstract class Node {
     this.type = this.constructor.name;
   }
 
-  getPrintTree(indent = '') {
+  private getPrintLine(
+    indent: string,
+    type: string,
+    raw?: string,
+    result?: DecimalLib,
+  ) {
+    let line = `${indent}${type}`;
+    if (raw !== undefined) {
+      line += ` -> ${raw}`;
+    }
+    if (result !== undefined) {
+      line += ` => ${result.toFixed(5)}`;
+    }
+    return line;
+  }
+
+  getPrintTree({ indent = '', printRaw = true, printResult = true } = {}) {
     const lines: string[] = [
-      `${indent}${this.type} -> ${this.raw} (${this.result.toFixed(5)})`,
+      this.getPrintLine(
+        indent,
+        this.type,
+        printRaw ? this.raw : undefined,
+        printResult ? this.result : undefined,
+      ),
     ];
     if (this.children) {
       for (let i = 0, len = this.children.length; i < len; i++) {
         const child = this.children[i];
-        lines.push(...child.getPrintTree(indent + '  '));
+        if (typeof child === 'string') {
+          lines.push(
+            this.getPrintLine(
+              indent + '  ',
+              'Operator',
+              printRaw ? child : undefined,
+            ),
+          );
+        } else {
+          lines.push(
+            ...child.getPrintTree({
+              indent: indent + '  ',
+              printRaw,
+              printResult,
+            }),
+          );
+        }
       }
     }
     return lines;
@@ -165,7 +202,7 @@ export class FuncCall extends Node {
 export class Unary<T extends Node = Node> extends Node {
   constructor(public operators: UnaryOptSym[], public node: T) {
     super();
-    this.children = [node];
+    this.children = [this.operators.join(''), node];
   }
 
   get raw() {
@@ -198,10 +235,16 @@ export class Parentheses<T extends Node = Node> extends Node {
   }
 }
 
-class BinaryExpr extends Node {
+export class BinaryExpr extends Node {
   constructor(public first: Node, public rest: [BinaryOptSym, Node][]) {
     super();
-    this.children = [first, ...rest.map(([, expr]) => expr)];
+    this.children = [
+      first,
+      ...rest.reduce((ret, [opt, expr]) => {
+        ret.push(opt, expr);
+        return ret;
+      }, [] as (Node | string)[]),
+    ];
   }
 
   get raw() {
