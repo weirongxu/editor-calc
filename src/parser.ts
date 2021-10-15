@@ -511,7 +511,8 @@ const calculateRecursion = (
       decimal: ast.result,
       result: ast.result.valueOf(),
     };
-  } catch (err) {
+  } catch (errUnknown) {
+    const err = errUnknown as Error & { type: 'ParsimmonError' };
     if (err.type === 'ParsimmonError') {
       if (text.length > 0) {
         const skip = skipWord(text);
