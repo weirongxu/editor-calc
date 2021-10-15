@@ -141,6 +141,12 @@ export class DecimalAtomic extends Node {
     if (this.source instanceof DecimalLib) {
       return this.source;
     } else {
+      if (this.source.endsWith('%')) {
+        const source = this.source.slice(0, -1);
+        const decimal = new DecimalLib(source.replace(/_/g, ''));
+        return decimal.div(100);
+      }
+
       return new DecimalLib(this.source.replace(/_/g, ''));
     }
   }
@@ -373,7 +379,7 @@ export const parenthesesP = <T extends Node = Node>(
  * decimal -> 11_111.11e11
  */
 export const decimalAtomicP = P.regexp(
-  /(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))(e[-+]?\d[\d_]*)?/,
+  /(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))%?(e[-+]?\d[\d_]*)?/,
 )
   .map((str) => new DecimalAtomic(str))
   .desc('decimal');

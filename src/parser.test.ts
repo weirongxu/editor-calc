@@ -66,6 +66,14 @@ const fixtures: {
       ['0.1 ++0.1++ 0.1', '0.3'],
       ['0.1 +++0.1+++ 0.1', '0.3'],
 
+      [' .3%', '0.003'],
+      ['0.3%', '0.003'],
+      ['1.3%', '0.013'],
+      ['30%', '0.3'],
+      [' .30%', '0.003'],
+      ['0.30%', '0.003'],
+      ['1.30%', '0.013'],
+
       ['0.1 * 0.2', '0.02'],
       ['0.1 *+ 0.2', '0.02'],
       ['0.2 / - 0.1', '-2'],
@@ -171,77 +179,79 @@ describe('calc with error', () => {
 });
 
 describe('calc with invalid text', () => {
-  ([
+  (
     [
-      'some text 1.321',
+      [
+        'some text 1.321',
+        {
+          skip: 10,
+          result: '1.321',
+        },
+      ],
+      [
+        'invalid text 1.321 = ',
+        {
+          skip: 13,
+          result: '1.321',
+        },
+      ],
+      [
+        'invalid text\t1.321=',
+        {
+          skip: 13,
+          result: '1.321',
+        },
+      ],
+      [
+        '1+2 invalid text 1.321=',
+        {
+          skip: 17,
+          result: '1.321',
+        },
+      ],
+      [
+        'Math.floor(4.5 * 2 =',
+        {
+          skip: 11,
+          result: '9',
+        },
+      ],
+      [
+        'Math.floor(seconds / 2 / 1 =',
+        {
+          skip: 20,
+          result: '2',
+        },
+      ],
+      [
+        'E 1 + 1 =',
+        {
+          skip: 2,
+          result: '2',
+        },
+      ],
+      [
+        '1 + 1 5 + 5 =',
+        {
+          skip: 6,
+          result: '10',
+        },
+      ],
+      [
+        '1 + 1 = 2 + 3 = 5 + 5 =',
+        {
+          skip: 15,
+          result: '10',
+        },
+      ],
+    ] as [
+      string,
       {
-        skip: 10,
-        result: '1.321',
+        skip: number;
+        result: string;
       },
-    ],
-    [
-      'invalid text 1.321 = ',
-      {
-        skip: 13,
-        result: '1.321',
-      },
-    ],
-    [
-      'invalid text\t1.321=',
-      {
-        skip: 13,
-        result: '1.321',
-      },
-    ],
-    [
-      '1+2 invalid text 1.321=',
-      {
-        skip: 17,
-        result: '1.321',
-      },
-    ],
-    [
-      'Math.floor(4.5 * 2 =',
-      {
-        skip: 11,
-        result: '9',
-      },
-    ],
-    [
-      'Math.floor(seconds / 2 / 1 =',
-      {
-        skip: 20,
-        result: '2',
-      },
-    ],
-    [
-      'E 1 + 1 =',
-      {
-        skip: 2,
-        result: '2',
-      },
-    ],
-    [
-      '1 + 1 5 + 5 =',
-      {
-        skip: 6,
-        result: '10',
-      },
-    ],
-    [
-      '1 + 1 = 2 + 3 = 5 + 5 =',
-      {
-        skip: 15,
-        result: '10',
-      },
-    ],
-  ] as [
-    string,
-    {
-      skip: number;
-      result: string;
-    },
-  ][]).forEach(([formula, matchObj]) => {
+    ][]
+  ).forEach(([formula, matchObj]) => {
     test(formula, () => {
       expect(calculate(formula)).toMatchObject(matchObj);
     });
