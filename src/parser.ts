@@ -376,7 +376,7 @@ export const parenthesesP = <T extends Node = Node>(
     .map((node) => new Parentheses(node));
 
 /**
- * decimal -> 11_111.11e11
+ * decimal -> 11_111.11%e11
  */
 export const decimalAtomicP = P.regexp(
   /(\d[\d_]*(\.\d[\d_]*)?|(\.\d[\d_]*))%?(e[-+]?\d[\d_]*)?/,
