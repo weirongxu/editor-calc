@@ -234,7 +234,7 @@ describe('calc with invalid text', () => {
     [
       'Math.floor(seconds / 2 / 1 =',
       {
-        skip: 20,
+        skip: 21,
         result: '2',
       },
     ],
@@ -255,7 +255,7 @@ describe('calc with invalid text', () => {
     [
       '1 + 1 = 2 + 3 = 5 + 5 =',
       {
-        skip: 15,
+        skip: 16,
         result: '10',
       },
     ],

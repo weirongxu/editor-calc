@@ -520,7 +520,11 @@ const calculateRecursion = (
   originText: string,
 ): CalculateResult => {
   try {
-    skipped += skipSpace(text)
+    const spaceSkipped = skipSpace(text)
+    if (spaceSkipped > 0) {
+      text = text.slice(spaceSkipped)
+      skipped += spaceSkipped
+    }
     const ast = parse(text)
     return {
       skip: skipped,
