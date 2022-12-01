@@ -17,7 +17,7 @@ const result = calculate('sin(PI/2)');
 
 const result = calculate('1 + 1 = 2 + 3 = 5 + 5 =');
 // result === {
-//   skip: 15,
+//   skip: 16,
 //   result: '10'
 // }
 
