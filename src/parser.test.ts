@@ -190,6 +190,14 @@ describe('calc with invalid text', () => {
     },
   ][] = [
     [
+      '   -1.9541',
+      {
+        skip: 4,
+        result: '-1.9541',
+        only: true,
+      },
+    ],
+    [
       'some text  1.321',
       {
         skip: 11,

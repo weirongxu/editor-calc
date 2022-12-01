@@ -520,6 +520,7 @@ const calculateRecursion = (
   originText: string,
 ): CalculateResult => {
   try {
+    skipped += skipSpace(text)
     const ast = parse(text)
     return {
       skip: skipped,
