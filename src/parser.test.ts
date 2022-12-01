@@ -5,12 +5,13 @@ import {
   funcCallP,
   Node,
   unaryExprP,
-} from './parser';
+} from './parser'
 
 const fixtures: {
-  description: string;
-  parse: (s: string) => Node;
-  cases: [string, string][];
+  description: string
+  parse: (s: string) => Node
+  cases: [string, string][]
+  only?: boolean
 }[] = [
   {
     description: 'parse decimal',
@@ -150,47 +151,55 @@ const fixtures: {
       ['add(add(1, 2), add(2, add(2, 1)))', '8'],
     ],
   },
-];
+]
 
 fixtures.forEach((fixture) => {
   describe(fixture.description, () => {
     fixture.cases.forEach(([formula, result]) => {
-      test(formula, () => {
-        const node = fixture.parse(formula);
-        const formulaResult = node.result.valueOf();
+      const fn = fixture.only ? test.only : test
+      fn(formula, () => {
+        const node = fixture.parse(formula)
+        const formulaResult = node.result.valueOf()
         if (node.result.valueOf() !== result) {
           // eslint-disable-next-line no-console
-          console.warn(formula);
+          console.warn(formula)
           // eslint-disable-next-line no-console
-          console.warn(node.getPrintTree().join('\n'));
+          console.warn(node.getPrintTree().join('\n'))
         }
-        expect(formulaResult).toEqual(result);
-      });
-    });
-  });
-});
+        expect(formulaResult).toEqual(result)
+      })
+    })
+  })
+})
 
 describe('calc with error', () => {
-  ['***', 'unvalid'].forEach((s) => {
+  ;['***', 'unvalid'].forEach((s) => {
     test(s, () => {
-      expect(() => calculate(s)).toThrow();
-    });
-  });
-});
+      expect(() => calculate(s)).toThrow()
+    })
+  })
+})
 
 describe('calc with invalid text', () => {
-  ([
+  const fixtures: [
+    formula: string,
+    matchObj: {
+      skip: number
+      result: string
+      only?: boolean
+    },
+  ][] = [
     [
-      'some text 1.321',
+      'some text  1.321',
       {
-        skip: 10,
+        skip: 11,
         result: '1.321',
       },
     ],
     [
-      'invalid text 1.321 = ',
+      'invalid text  1.321 = ',
       {
-        skip: 13,
+        skip: 14,
         result: '1.321',
       },
     ],
@@ -243,15 +252,15 @@ describe('calc with invalid text', () => {
         result: '10',
       },
     ],
-  ] as [
-    string,
-    {
-      skip: number;
-      result: string;
-    },
-  ][]).forEach(([formula, matchObj]) => {
-    test(formula, () => {
-      expect(calculate(formula)).toMatchObject(matchObj);
-    });
-  });
-});
+  ]
+
+  fixtures.forEach(([formula, matchObj]) => {
+    const fn = matchObj.only ? test.only : test
+    fn(formula, () => {
+      expect(calculate(formula)).toMatchObject({
+        skip: matchObj.skip,
+        result: matchObj.result,
+      })
+    })
+  })
+})
