@@ -1,8 +1,10 @@
 import {
+  binaryAtomicP,
   calculate,
   constantAtomicP,
   decimalAtomicP,
   funcCallP,
+  hexAtomicP,
   Node,
   unaryExprP,
 } from './parser'
@@ -25,6 +27,36 @@ const fixtures: {
       ['1.2e-5', '0.000012'],
 
       ['1_1.2_2e5_1', decimalAtomicP.tryParse('11.22e51').result.valueOf()],
+    ],
+  },
+  {
+    description: 'parse binary',
+    parse: (s) => binaryAtomicP.tryParse(s),
+    cases: [
+      ['0b1', '1'],
+      ['0b11001101', '205'],
+      ['0B11P-0', '3'],
+      ['0b110101011.1111', '427.9375'],
+      ['0b1_10101011.1111', '427.9375'],
+      [
+        '0b1.1111111111111111111111111111111111111111111111111111p+1023',
+        '1.7976931348623157081e+308',
+      ],
+    ],
+  },
+  {
+    description: 'parse hex',
+    parse: (s) => hexAtomicP.tryParse(s),
+    cases: [
+      ['0x1', '1'],
+      ['0xff', '255'],
+      ['0XfF', '255'],
+      ['0XfF_a1B', '1047067'],
+      ['0X.a_1B', '0.631591796875'],
+      ['0xff.f', '255.9375'],
+      ['0x1.8P1', '3'],
+      ['0x1.8p+1', '3'],
+      ['0X1.8p-1', '0.75'],
     ],
   },
   {
@@ -58,6 +90,10 @@ const fixtures: {
     description: 'calc base',
     parse: (s) => calculate(s).ast,
     cases: [
+      ['0b1 + 0b11', '4'],
+      ['0x1 + 0x3', '4'],
+      ['0xff + 0b1', '256'],
+      
       ['1', '1'],
       ['1.321', '1.321'],
       ['( (( - 1.321e2) ))', '-132.1'],
