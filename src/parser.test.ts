@@ -4,6 +4,7 @@ import {
   constantAtomicP,
   decimalAtomicP,
   funcCallP,
+  hexAtomicP,
   Node,
   unaryExprP,
 } from './parser'
@@ -29,7 +30,6 @@ const fixtures: {
     ],
   },
   {
-  {
     description: 'parse binary',
     parse: (s) => binaryAtomicP.tryParse(s),
     cases: [
@@ -44,6 +44,22 @@ const fixtures: {
       ],
     ],
   },
+  {
+    description: 'parse hex',
+    parse: (s) => hexAtomicP.tryParse(s),
+    cases: [
+      ['0x1', '1'],
+      ['0xff', '255'],
+      ['0XfF', '255'],
+      ['0XfF_a1B', '1047067'],
+      ['0X.a_1B', '0.631591796875'],
+      ['0xff.f', '255.9375'],
+      ['0x1.8P1', '3'],
+      ['0x1.8p+1', '3'],
+      ['0X1.8p-1', '0.75'],
+    ],
+  },
+  {
     description: 'parse constant atomic',
     parse: (s) => constantAtomicP.tryParse(s),
     cases: [['PI', '3.141592653589793']],
@@ -75,6 +91,8 @@ const fixtures: {
     parse: (s) => calculate(s).ast,
     cases: [
       ['0b1 + 0b11', '4'],
+      ['0x1 + 0x3', '4'],
+      ['0xff + 0b1', '256'],
       
       ['1', '1'],
       ['1.321', '1.321'],

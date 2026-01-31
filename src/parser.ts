@@ -194,6 +194,29 @@ export class BinaryAtomic extends Node {
   }
 }
 
+export class HexAtomic extends Node {
+  get result(): DecimalLib {
+    if (this.source instanceof DecimalLib) {
+      return this.source
+    } else {
+      return new DecimalLib(this.source.replace(/_/g, ''))
+    }
+  }
+
+  get raw(): string {
+    if (this.source instanceof DecimalLib) {
+      return this.source.valueOf()
+    } else {
+      return this.source
+    }
+  }
+
+  constructor(source: string)
+  constructor(source: DecimalLib)
+  constructor(public source: string | DecimalLib) {
+    super()
+  }
+}
 
 export class ConstantAtomic extends Node {
   constSym: ConstSym
@@ -422,6 +445,15 @@ export const binaryAtomicP = P.regexp(
   .map((str) => new BinaryAtomic(str))
   .desc('binary')
 
+/**
+ * hex -> 0xff.ap10
+ */
+export const hexAtomicP = P.regexp(
+  /0[xX](?:[0-9a-fA-F][0-9a-fA-F_]*(?:\.[0-9a-fA-F][0-9a-fA-F_]*)?|\.[0-9a-fA-F][0-9a-fA-F_]*)([pP][-+]?\d[\d_]*)?/,
+)
+  .map((str) => new HexAtomic(str))
+  .desc('hex')
+
 export const includesP = (ss: readonly string[]): P.Parser<string> =>
   P.alt(...ss.map((s) => P.string(s)))
 
@@ -455,6 +487,7 @@ type UnaryNode =
   | ConstantAtomic
   | DecimalAtomic
   | BinaryAtomic
+  | HexAtomic
 
 type UnaryExpr = Unary<Parentheses<Expr>> | Unary<UnaryNode> | UnaryNode
 
@@ -463,6 +496,7 @@ type UnaryExpr = Unary<Parentheses<Expr>> | Unary<UnaryNode> | UnaryNode
  * unaryExpr -> (expr)
  * unaryExpr -> functionCall
  * unaryExpr -> constant
+ * unaryExpr -> hex
  * unaryExpr -> binary
  * unaryExpr -> decimal
  */
@@ -473,6 +507,7 @@ export const unaryExprP = P.lazy(() =>
       parenthesesP(exprP),
       funcCallP,
       constantAtomicP,
+      hexAtomicP,
       binaryAtomicP,
       decimalAtomicP,
     ),
