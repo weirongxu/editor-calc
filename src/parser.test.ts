@@ -1,4 +1,5 @@
 import {
+  binaryAtomicP,
   calculate,
   constantAtomicP,
   decimalAtomicP,
@@ -28,6 +29,21 @@ const fixtures: {
     ],
   },
   {
+  {
+    description: 'parse binary',
+    parse: (s) => binaryAtomicP.tryParse(s),
+    cases: [
+      ['0b1', '1'],
+      ['0b11001101', '205'],
+      ['0B11P-0', '3'],
+      ['0b110101011.1111', '427.9375'],
+      ['0b1_10101011.1111', '427.9375'],
+      [
+        '0b1.1111111111111111111111111111111111111111111111111111p+1023',
+        '1.7976931348623157081e+308',
+      ],
+    ],
+  },
     description: 'parse constant atomic',
     parse: (s) => constantAtomicP.tryParse(s),
     cases: [['PI', '3.141592653589793']],
@@ -58,6 +74,8 @@ const fixtures: {
     description: 'calc base',
     parse: (s) => calculate(s).ast,
     cases: [
+      ['0b1 + 0b11', '4'],
+      
       ['1', '1'],
       ['1.321', '1.321'],
       ['( (( - 1.321e2) ))', '-132.1'],

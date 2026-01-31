@@ -170,6 +170,31 @@ export class DecimalAtomic extends Node {
   }
 }
 
+export class BinaryAtomic extends Node {
+  get result(): DecimalLib {
+    if (this.source instanceof DecimalLib) {
+      return this.source
+    } else {
+      return new DecimalLib(this.source.replace(/_/g, ''))
+    }
+  }
+
+  get raw(): string {
+    if (this.source instanceof DecimalLib) {
+      return this.source.valueOf()
+    } else {
+      return this.source
+    }
+  }
+
+  constructor(source: string)
+  constructor(source: DecimalLib)
+  constructor(public source: string | DecimalLib) {
+    super()
+  }
+}
+
+
 export class ConstantAtomic extends Node {
   constSym: ConstSym
 
@@ -388,6 +413,15 @@ export const decimalAtomicP = P.regexp(
   .map((str) => new DecimalAtomic(str))
   .desc('decimal')
 
+/**
+ * binary -> 0b1010.1p10
+ */
+export const binaryAtomicP = P.regexp(
+  /0[bB](?:[01][01_]*(?:\.[01][01_]*)?|\.[01][01_]*)([pP][-+]?\d[\d_]*)?/,
+)
+  .map((str) => new BinaryAtomic(str))
+  .desc('binary')
+
 export const includesP = (ss: readonly string[]): P.Parser<string> =>
   P.alt(...ss.map((s) => P.string(s)))
 
@@ -416,7 +450,11 @@ export const funcCallP = P.lazy(() =>
   ).map(([name, args]) => new FuncCall(name, args)),
 ).desc('functionCall')
 
-type UnaryNode = FuncCall | ConstantAtomic | DecimalAtomic
+type UnaryNode =
+  | FuncCall
+  | ConstantAtomic
+  | DecimalAtomic
+  | BinaryAtomic
 
 type UnaryExpr = Unary<Parentheses<Expr>> | Unary<UnaryNode> | UnaryNode
 
@@ -425,12 +463,19 @@ type UnaryExpr = Unary<Parentheses<Expr>> | Unary<UnaryNode> | UnaryNode
  * unaryExpr -> (expr)
  * unaryExpr -> functionCall
  * unaryExpr -> constant
+ * unaryExpr -> binary
  * unaryExpr -> decimal
  */
 export const unaryExprP = P.lazy(() =>
   P.seq(
     unaryOptP.many(),
-    P.alt(parenthesesP(exprP), funcCallP, constantAtomicP, decimalAtomicP),
+    P.alt(
+      parenthesesP(exprP),
+      funcCallP,
+      constantAtomicP,
+      binaryAtomicP,
+      decimalAtomicP,
+    ),
   ).map(([unaryOperators, node]) =>
     unaryOperators.length ? new Unary(unaryOperators, node) : node,
   ),
